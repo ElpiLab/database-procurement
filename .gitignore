@@ -1,0 +1,34 @@
+
+# VS Code
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# Temporary and backup files
+*.tmp
+*.bak
+*.log
+*~
+
+# Environment and credentials
+.env
+.env.*
+!.env.example
+*.wallet
+tnsnames.ora
+
+# Oracle local files
+*.dmp
+*.trc
+
+# Database exports and backups
+*.db
+*.sqlite
+*.sqlite3
