@@ -1,97 +1,155 @@
 # KSBL MedSupply Procurement Database
 
-A relational Oracle database project for procurement, supplier management, and medical inventory at Kantonsspital Baselland (KSBL).
+A group Oracle SQL project modelling supplier management, medical-product procurement, purchase orders, and basic stock monitoring for Kantonsspital Baselland (KSBL).
 
-## Project overview
+## My technical contribution
 
-This project models a simplified procurement and basic inventory database for Kantonsspital Baselland (KSBL). It represents procurement information that could otherwise be maintained in separate Excel files and provides a structured basis for storing, validating, and analysing the data.
+This was a collaborative university project. My main responsibility was the **technical database design and implementation**. In particular, I:
 
-The database stores supplier, medical-product, department, employee, supplier-product, purchase-order, and order-position information. It supports supplier-product analysis, purchase-order tracking, basic stock-level monitoring, and procurement reporting through SQL queries.
+- Designed the logical data model and relationships.
+- Created the ERD available in [`diagram/Logical_erd.pdf`](diagram/Logical_erd.pdf).
+- Translated the model into Oracle DDL.
+- Designed primary keys, foreign keys, composite keys, unique constraints, and validation rules.
+- Resolved the supplier–product and order–product many-to-many relationships with associative tables.
+- Built the reproducible KSBL-prefixed setup script in `KSBL_Project/ksbl_setup.sql`.
+- Prepared the sample-data loading script and the all-in-one recreation script.
+- Added SQL queries for supplier compliance, purchasing spend, supplier alternatives, and stock-risk analysis.
+- Documented the model, assumptions, execution process, and technical scope.
 
-In a real hospital environment, similar data could be extracted from or integrated with systems such as SAP, Onventis, or Excel. This project is a standalone academic model and is not intended to replace the hospital's complete enterprise, procurement, finance, or inventory systems.
+The project context and business requirements were developed as a group. This repository highlights my work on the **ERD, relational modelling, Oracle schema design, constraints, and executable SQL scripts**.
 
-## Scope and boundaries
+## Project context
 
-The current scope includes:
+The database represents a simplified procurement and reporting system for a hospital. It replaces disconnected procurement spreadsheets with a relational model covering:
 
-- Supplier master data and basic supplier compliance information.
-- Medical-product master data, including current and minimum stock levels.
-- Supplier-product relationships, catalogue numbers, lead times, prices, and sourcing priorities.
-- Hospital departments and employees associated with purchase orders.
-- Purchase orders and their product line items.
-- SQL-based procurement and basic stock-level analysis.
+- Suppliers and compliance status
+- Medical products and simplified current stock
+- Supplier product catalogues, lead times, prices, and sourcing priorities
+- Hospital departments and employees
+- Purchase-order headers and order positions
 
-The current scope does not include full warehouse management, purchase requisitions, approval workflows, contract management, goods receipts, invoice processing, payment processing, detailed stock-movement history, authentication, or role-based access control.
+It is intentionally a prototype rather than a complete hospital ERP, warehouse-management, finance, or clinical system.
 
-The database records current stock as a simplified value. It does not automatically create a reorder when stock falls below the minimum level; products below the threshold can instead be identified for replenishment through SQL analysis.
+## Technical highlights
 
-## Scope assumptions
+- Oracle SQL and Oracle DDL
+- Logical and relational data modelling
+- Entity relationship design and cardinality analysis
+- Primary keys and foreign keys
+- Composite keys for associative entities
+- `CHECK`, `UNIQUE`, and `NOT NULL` constraints
+- Identity columns
+- Referential actions with `ON DELETE CASCADE`
+- Normalized master and transaction data
+- Many-to-many relationship resolution
+- SQL joins, aggregation, subqueries, filtering, and date analysis
+- Reproducible database setup and sample-data loading
 
-- The database is a simplified procurement and reporting model for the assignment, not a complete hospital information system.
-- `PURCHASE_ORDER.delivery_date` must be given a clear interpretation when delivery analysis queries are implemented, because the current schema does not separately store planned and actual delivery dates.
-- A draft purchase order may temporarily contain no order positions. An ordered or delivered purchase order should contain at least one position, although this rule is not fully enforced by the current DDL.
-- Sourcing priority `1` represents a primary supplier and priority `2` represents a backup supplier. The current schema does not enforce exactly one primary supplier or the existence of a backup supplier for every product.
-- The current DDL does not fully enforce that every product on a purchase order is offered by the selected supplier in `SUPPLIER_PRODUCT`.
+## Data model
 
+The implementation contains seven KSBL-prefixed tables. The prefix prevents collisions with unrelated tables in a shared Oracle/FreeSQL schema.
 
-## Main entities
+| Table | Purpose |
+|---|---|
+| `KSBL_SUPPLIER` | Supplier master data and compliance information |
+| `KSBL_PRODUCT` | Medical-product master data and stock thresholds |
+| `KSBL_SUPPLIER_PRODUCT` | Supplier catalogue, price, lead time, and sourcing priority |
+| `KSBL_DEPARTMENT` | Hospital departments and cost centres |
+| `KSBL_EMPLOYEE` | Employees associated with departments and orders |
+| `KSBL_PURCHASE_ORDER` | Purchase-order header, supplier, employee, status, and dates |
+| `KSBL_ORDER_POSITION` | Products, quantities, and historical prices per order |
 
-- **Suppliers** — company information, contact details, address, invoice activity, and code-of-conduct status.
-- **Products** — medical supplies, categories, current stock, minimum stock thresholds, and sterile status.
-- **Supplier_Product** — associative table connecting suppliers and products, including catalogue numbers, lead times, prices, and sourcing priority.
-- **Departments** — hospital departments, cost centres, and building information.
-- **Employees** — staff members assigned to departments who are responsible for creating purchase orders.
-- **Purchase Orders** — orders placed with external suppliers, including order dates, delivery dates, statuses, and shipping costs.
-- **Order Positions** — the products, quantities, and historical prices included in each purchase order.
+`KSBL_SUPPLIER_PRODUCT` resolves the many-to-many relationship between suppliers and products. `KSBL_ORDER_POSITION` resolves the many-to-many relationship between purchase orders and products while preserving order-specific quantity and price.
 
-## Main business rules
+The design separates master data from transaction data and stores relationship-specific attributes in the appropriate associative tables. This avoids repeating supplier, product, and order information and prevents later catalogue-price changes from rewriting historical order prices.
 
-- A supplier can provide many products, and a product can be provided by many suppliers. This many-to-many relationship is resolved through `SUPPLIER_PRODUCT`.
-- Each supplier-product relationship stores supplier-specific catalogue information, lead time, unit price, and sourcing priority.
-- Every employee belongs to exactly one department.
-- Each purchase order is associated with exactly one supplier and created by exactly one employee.
-- A purchase order contains product lines through `ORDER_POSITION`. A draft order may temporarily contain zero positions, while an ordered or delivered order should contain at least one position.
-- Each order position refers to exactly one product and must have a positive quantity.
-- Product stock and minimum-stock values cannot be negative.
-- Supplier-product prices and historical order prices cannot be negative.
-- Sourcing priority `1` represents a primary supplier and priority `2` represents a backup supplier. The current schema does not enforce exactly one primary supplier or the existence of a backup supplier for every product.
-- Historical order prices are stored separately from current supplier-product prices so that past purchasing costs remain accurate.
-- Products below their minimum stock level should be identified for possible replenishment through SQL analysis; the database does not automatically create a reorder.
-- Ideally, a purchase order should contain only products offered by its selected supplier. This rule is not fully enforced by the current DDL.
+## ERD and implementation
 
+The main logical ERD is available here:
 
-## Database design
+- [`diagram/Logical_erd.pdf`](diagram/Logical_erd.pdf)
 
-The Oracle DDL script is located at:
+The executable implementation is in [`KSBL_Project/`](KSBL_Project/):
 
-`documentation/medsupply_ksbl_oracle_ddl_v4.sql`
+- `ksbl_setup.sql` — drops and recreates only the KSBL tables.
+- `insert_data_ksbl.sql` — loads departments, suppliers, products, employees, catalogues, orders, and order positions.
+- `master_insert.sql` — performs a complete reset, schema creation, and data load.
+- `query_test.sql` — contains row-count checks and procurement analysis queries.
 
-It creates these seven tables:
+## Running the database
 
-1. `SUPPLIER`
-2. `PRODUCT`
-3. `SUPPLIER_PRODUCT`
-4. `DEPARTMENT`
-5. `EMPLOYEE`
-6. `PURCHASE_ORDER`
-7. `ORDER_POSITION`
+The scripts target Oracle Database, Oracle FreeSQL, or Oracle SQL Developer.
 
-The schema uses primary keys, foreign keys, unique constraints, mandatory fields, check constraints, identity columns, and cascading deletion from purchase orders to their order positions.
+### Complete reset and load
 
-## Planned SQL questions
+Run `KSBL_Project/master_insert.sql` as a **script** using Run Script/F5. It:
 
-The project will use SQL queries to answer operational questions such as:
+1. Drops only existing tables whose names begin with `KSBL_`.
+2. Recreates the seven-table schema.
+3. Loads the sample data.
+4. Commits the transaction.
 
-- Which suppliers have not submitted an invoice for more than two years despite significant historical purchase volume?
-- Which high-spend suppliers have not accepted the mandatory code of conduct?
+This does not remove unrelated tables in the schema.
+
+### Separate execution
+
+Alternatively, run the scripts in this order:
+
+1. `KSBL_Project/ksbl_setup.sql`
+2. `KSBL_Project/insert_data_ksbl.sql`
+3. `KSBL_Project/query_test.sql`
+
+After loading the data, the repository includes a row-count verification query in `KSBL_Project/README.md`.
+
+## Example analytical use cases
+
+The SQL layer supports questions such as:
+
+- Which suppliers have no recent invoice record?
+- Which non-compliant suppliers have historical purchasing spend?
 - Which products have a slow primary supplier and an available backup supplier?
-- Which departments spend more than average on sterile products?
-- Which products are below their minimum stock level and have not appeared in a recent purchase order?
-- Which suppliers have the longest delivery delays and the greatest shipping-cost impact?
+- Which products are below their minimum stock level?
+- Which departments or suppliers generate the highest purchasing spend?
+- Which suppliers have long delivery times or high shipping costs?
 
-## Project status
+These queries demonstrate joins across the normalized schema, aggregation, filtering, subqueries, self-joins, and date-based analysis.
 
-The initial database schema, project documentation, and ERD draft are included. The scope and business-rule assumptions still require agreement within the team. Sample data, tested query files, query results, and the final reviewed ERD still need to be completed.
+## Scope and modelling assumptions
 
+This prototype does not include purchase requisitions, approval workflows, contracts, goods receipts, invoices, payments, detailed stock movements, authentication, or role-based access control.
 
-The project uses Oracle SQL and is intended to be imported into Oracle SQL Developer or Oracle SQL Developer Data Modeler.
+Key assumptions include:
+
+- `delivery_date` is used as the available delivery date; planned and actual delivery dates are not separated.
+- A draft purchase order may temporarily have no positions.
+- Supplier priority `1` represents a primary supplier and `2` represents a backup supplier.
+- Stock is stored as a simplified current value rather than a movement history.
+- The schema documents several business rules that would require triggers, application logic, or additional constraints in a production system.
+
+## Repository structure
+
+```text
+README.md
+LICENSE
+KSBL_Project/
+  README.md
+  ksbl_setup.sql
+  insert_data_ksbl.sql
+  master_insert.sql
+  query_test.sql
+diagram/
+  Logical_erd.pdf
+  medsupply_ksbl_oracle_ddl_v5.pdf
+documentation/
+  Project_Overview.docx
+  GROUP ASSIGNMENT – KSBL PROCRUMENT DB.docx
+  medsupply_ksbl_oracle_ddl_v4.sql
+```
+
+## Academic context
+
+This repository contains the technical database work from a group assignment. The scenario is academic and uses synthetic sample data, but the design demonstrates practical skills applicable to SQL development, data modelling, database engineering, and procurement analytics.
+
+## License
+
+This project is provided under the MIT License. See [LICENSE](LICENSE) for details.
